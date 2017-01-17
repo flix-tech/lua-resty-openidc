@@ -341,6 +341,7 @@ local function openidc_authorization_response(opts, session)
   session:start()
   session.data.user = user
   session.data.id_token = id_token
+  session.data.enc_id_token = json.id_token
   session.data.access_token = json.access_token
 
   -- save the session with the obtained id_token
@@ -372,7 +373,14 @@ local function openidc_discover(url, ssl_verify)
       ngx.log(ngx.DEBUG, "Response data: "..res.body)
       json, err = openidc_parse_json_response(res)
       if json then
-        openidc_cache_set("discovery", url, cjson.encode(json), 24 * 60 * 60)
+        if string.sub(url, 1, string.len(json['issuer'])) == json['issuer'] then
+          openidc_cache_set("discovery", url, cjson.encode(json), 24 * 60 * 60)
+        else
+          err = "issuer field in Discovery data does not match URL"
+          json = nil
+        end
+      else
+        err = "could not decode JSON from Discovery data"
       end
     end
 
